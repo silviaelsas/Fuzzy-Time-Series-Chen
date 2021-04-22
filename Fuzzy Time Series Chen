@@ -1,0 +1,98 @@
+data = as.vector(data$Price)
+data
+library(TSPred)
+
+interval_fuzzy <- function(data, D1 = 10, D2= 12){
+  Umin = min(data)- D1
+  Umax = max(data)+ D2
+  n = round(1 +3.322 *logb(length(data), base  = 10))
+  l = (Umax - Umin)/n
+  intervals = data.frame(mins = 0, maxs = 0)
+  intervals[1,1] = Umin
+  intervals[1,2] = Umin + l
+  for (i in 2:n){
+    intervals[i,1] = intervals[i-1,2]
+    intervals[i,2] = intervals[i,1] + l
+  }
+  return((intervals = intervals))
+}
+interval = interval_fuzzy(data, D1 = 10, D2 = 12)
+interval
+
+
+fuzzy_chen <- function(data,interval){
+  m = as.vector(rowMeans(interval))
+  fuzifikasi=c() 
+  for (i in 1:length(data)){
+    for (j in 1:nrow(interval)){
+      if (i!=which.max(data)){
+        if (data[i]>=(interval[j,1])&data[i]<(interval[j,2])){
+          fuzifikasi[i]=j
+          break
+        }
+      }
+      else {
+        if (data[i]>=(interval[j,1])&data[i]<=(interval[j,2])){
+          fuzifikasi[i]=j
+          break
+        }
+      }
+    }
+  }
+  flr <- data.frame(current_state=0, next_state=0)
+  for(i in 1: length(fuzifikasi)){
+    if(i < length(fuzifikasi)){
+      flr[i,]=c(fuzifikasi[i],fuzifikasi[i+1])
+    }
+    else{
+      flr[i,]=c(fuzifikasi[i],0)
+    }
+  }
+  flrg = list()
+  for (i in 1:nrow(interval)){
+    flrgi=c()
+    for (j in 1:(length(data)-1)){
+      if (flr[j,1]==i){
+        flrgi = c(flrgi,flr[j,2])
+      }
+    }
+    flrg[[i]] = flrgi
+  }
+  uni = list()
+  for (i in 1:nrow(interval)){
+    y = flrg[[i]]
+    r = unique(y)
+    uni[[i]] = r
+  }
+  jum = list()
+  for (i in 1:nrow(interval)){
+    jums = c()
+    for (j in 1:length(uni[[i]])){
+      jums = c(jums,m[uni[[i]][[j]]])
+    }
+    jum[[i]] = jums
+  }
+  meanpred = lapply(jum,mean)
+  
+  prediksi = c()
+  for (i in 1:length(data)){
+    if (i == 1){
+      pred = NA
+    }
+    else{
+      pred = meanpred[[fuzifikasi[(i-1)]]]
+    }
+    prediksi = c(prediksi, pred)
+  }
+  ### Forecast
+  ramal = meanpred[[fuzifikasi[length(data)]]]
+  smape = sMAPE(data[2:120],prediksi[2:120])
+  cat("Data Hasil Prediksi : \n")
+  print(prediksi)
+  cat("Nilai sMape : \n")
+  print(smape)
+  cat("Data Ramalan 1 Periode kedepan : \n")
+  print(ramal)
+}
+ 
+fuzzy_chen(data,interval)
